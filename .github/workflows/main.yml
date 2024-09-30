@@ -1,37 +1,36 @@
-name: Build and push image to ECR
+name: 10- Working with Matrices
 
-on: push
-  
+on:
+  workflow_dispatch:
 
 jobs:
-  
-  build:
+  backwards-compatibility:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: [16.x, 18.x, 20.x, 21.x]
+        include:
+          - os: ubuntu-latest
+            node-version: 21.x
+            tag: experimental
+    name: ${{ matrix.os }}-node-${{ matrix.node-version }}
     
-    name: Build Image
-    runs-on: ubuntu-latest
-
-   
     steps:
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
 
-    - name: Check out code
-      uses: actions/checkout@v2
-    
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-southeast-2
+      - name: Fail if experimental
+        if: matrix.tag == 'experimental'
+        run: exit 1
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Perform some tests
+        run: |
+          echo "Running tests on OS ${{ matrix.os }} and NodeJS ${{ matrix.node-version }}"
+          sleep 10
 
-    - name: Build, tag, and push image to Amazon ECR
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: github-sample
-        IMAGE_TAG: sample_image
-      run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+      - name: Upload test results
+        run: echo "Uploading test results"
